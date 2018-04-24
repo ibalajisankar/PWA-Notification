@@ -360,173 +360,145 @@
     ];
     app.saveSelectedCities();
   }
-
   // TODO add service worker code here
-  if ('serviceWorker' in navigator) {
+  
+            
+})();
+const pushButton = document.getElementById('fab__push');
+const applicationServerPublicKey = 
+`BBXgS1vyo5d1Y1t7m7iAdq2BFvGGV2R7TQVIRC-6UFf0guA73Uc_T0NQAacyBOZBIXTjapcwl58Jf0Jh9uEwL4M`;
+
+
+let isSubscribed = false;
+let swRegistration = null;
+
+function urlB64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding)
+    .replace(/\-/g, '+')
+    .replace(/_/g, '/');
+
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
+function updateBtn() {
+  if (Notification.permission === 'denied') {
+    pushButton.textContent = 'Push Messaging Blocked.';
+    pushButton.disabled = true;
+    updateSubscriptionOnServer(null);
+    return;
+  }
+
+  if (isSubscribed) {
+    pushButton.textContent = 'Disable Push Messaging';
+  } else {
+    pushButton.textContent = 'Enable Push Messaging';
+  }
+
+  pushButton.disabled = false;
+}
+
+function updateSubscriptionOnServer(subscription) {
+  // TODO: Send subscription to application server
+
+  const subscriptionJson = document.querySelector('.js-subscription-json');
+  const subscriptionDetails =
+    document.querySelector('.js-subscription-details');
+
+  if (subscription) {
+    subscriptionJson.textContent = JSON.stringify(subscription);
+    subscriptionDetails.classList.remove('is-invisible');
+  } else {
+    subscriptionDetails.classList.add('is-invisible');
+  }
+}
+
+function subscribeUser() {
+  const applicationServerKey = urlB64ToUint8Array(applicationServerPublicKey);
+  swRegistration.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: applicationServerKey
+  })
+  .then(function(subscription) {
+    console.log('User is subscribed.');
+
+    updateSubscriptionOnServer(subscription);
+
+    isSubscribed = true;
+
+    updateBtn();
+  })
+  .catch(function(err) {
+    console.log('Failed to subscribe the user: ', err);
+    updateBtn();
+  });
+}
+
+function unsubscribeUser() {
+  swRegistration.pushManager.getSubscription()
+  .then(function(subscription) {
+    if (subscription) {
+      return subscription.unsubscribe();
+    }
+  })
+  .catch(function(error) {
+    console.log('Error unsubscribing', error);
+  })
+  .then(function() {
+    updateSubscriptionOnServer(null);
+
+    console.log('User is unsubscribed.');
+    isSubscribed = false;
+
+    updateBtn();
+  });
+}
+
+function initializeUI() {
+  pushButton.addEventListener('click', function() {
+    pushButton.disabled = true;
+    if (isSubscribed) {
+      unsubscribeUser();
+    } else {
+      subscribeUser();
+    }
+  });
+
+  // Set the initial subscription value
+  swRegistration.pushManager.getSubscription()
+  .then(function(subscription) {
+    isSubscribed = !(subscription === null);
+
+    updateSubscriptionOnServer(subscription);
+
+    if (isSubscribed) {
+      console.log('User IS subscribed.');
+    } else {
+      console.log('User is NOT subscribed.');
+    }
+
+    updateBtn();
+  });
+}
+if ('serviceWorker' in navigator) {
     navigator.serviceWorker
              .register('./service-worker.js')
-             .then(function() { 
-              
+             .then((swReg) => { 
+              swRegistration = swReg;
              console.log('Service Worker Registered');
-              Notification.requestPermission(function(status) {
-                  console.log('Notification permission status:', status);
-              });
-  
+              // Notification.requestPermission(function(status) {
+              //     console.log('Notification permission status:', status);
+              // });
+    initializeUI();
+
 
             })
              .catch((e) => { console.log(e); }) ;
 
             }
-            
-})();
-
-
-
-
-(function (window) {
-  'use strict';
-  var isTooSoon = true;
-window.addEventListener("beforeinstallprompt", function(e) {
-  if (isTooSoon) {
-    e.preventDefault(); // Prevents prompt display
-    // Prompt later instead:
-    setTimeout(function() {
-      isTooSoon = false;
-      e.prompt(); // Throws if called more than once or default not prevented
-    }, 10000);
-  }
-
-  // The event was re-dispatched in response to our request
-  // ...
-});
-  //Push notification button
-  var fabPushElement = document.querySelector('.fab__push');
-  var fabPushImgElement = document.querySelector('.fab__image');
-
-  //To check `push notification` is supported or not
-  function isPushSupported() {
-    //To check `push notification` permission is denied by user
-    if (Notification.permission === 'denied') {
-      alert('User has blocked push notification.');
-      return;
-    }
-
-    //Check `push notification` is supported or not
-    if (!('PushManager' in window)) {
-      alert('Sorry, Push notification isn\'t supported in your browser.');
-      return;
-    }
-    Notification.requestPermission(function(status) {
-    console.log('Notification permission status:', status);
-});
-
-    //Get `push notification` subscription
-    //If `serviceWorker` is registered and ready
-    navigator.serviceWorker.ready
-      .then(function (registration) {
-        registration.pushManager.getSubscription()
-        .then(function (subscription) {
-          //If already access granted, enable push button status
-          if (subscription) {
-            changePushStatus(true);
-          }
-          else {
-            changePushStatus(false);
-          }
-        })
-        .catch(function (error) {
-          console.error('Error occurred while enabling push ', error);
-        });
-      });
-  }
-
-  // Ask User if he/she wants to subscribe to push notifications and then
-  // ..subscribe and send push notification
-  function subscribePush() {
-            debugger;
-
-    navigator.serviceWorker.ready.then(function(registration) {
-      if (!registration.pushManager) {
-        alert('Your browser doesn\'t support push notification.');
-        return false;
-      }
-      //To subscribe `push notification` from push manager
-      registration.pushManager.subscribe({
-        userVisibleOnly: true //Always show notification when received
-      })
-      .then(function (subscription) {
-        toast('Subscribed successfully.');
-        console.info('Push notification subscribed.');
-        console.log(subscription);
-        //saveSubscriptionID(subscription);
-        changePushStatus(true);
-      })
-      .catch(function (error) {
-        changePushStatus(false);
-        console.error('Push notification subscription error: ', error);
-      });
-    })
-  }
-
-  // Unsubscribe the user from push notifications
-  function unsubscribePush() {
-    navigator.serviceWorker.ready
-    .then(function(registration) {
-      //Get `push subscription`
-      registration.pushManager.getSubscription()
-      .then(function (subscription) {
-        //If no `push subscription`, then return
-        if(!subscription) {
-          alert('Unable to unregister push notification.');
-          return;
-        }
-
-        //Unsubscribe `push notification`
-        subscription.unsubscribe()
-          .then(function () {
-            toast('Unsubscribed successfully.');
-            console.info('Push notification unsubscribed.');
-            console.log(subscription);
-            //deleteSubscriptionID(subscription);
-            changePushStatus(false);
-          })
-          .catch(function (error) {
-            console.error(error);
-          });
-      })
-      .catch(function (error) {
-        console.error('Failed to unsubscribe push notification.');
-      });
-    })
-  }
-
-  //To change status
-  function changePushStatus(status) {
-    fabPushElement.dataset.checked = status;
-    fabPushElement.checked = status;
-    // if (status) {
-    //   fabPushElement.classList.add('active');
-    //   fabPushImgElement.src = '../images/push-on.png';
-    // }
-    // else {
-    //  fabPushElement.classList.remove('active');
-    //  fabPushImgElement.src = '../images/push-off.png';
-    // }
-  }
-
-  //Click event for subscribe push
-  fabPushElement.addEventListener('click', function () {
-    var isSubscribed = (fabPushElement.dataset.checked === 'true');
-    if (isSubscribed) {
-      alert(isSubscribed);
-      unsubscribePush();
-    }
-    else {
-      alert(isSubscribed);
-      
-      subscribePush();
-    }
-  });
-
-  isPushSupported(); //Check for push notification support
-})(window);

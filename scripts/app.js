@@ -371,22 +371,7 @@
               Notification.requestPermission(function(status) {
                   console.log('Notification permission status:', status);
               });
-              window.addEventListener('beforeinstallprompt', function(e) {
-  // beforeinstallprompt Event fired
-
-  // e.userChoice will return a Promise.
-  e.userChoice.then(function(choiceResult) {
-
-    console.log(choiceResult.outcome);
-
-    if(choiceResult.outcome == 'dismissed') {
-      console.log('User cancelled home screen install');
-    }
-    else {
-      console.log('User added to home screen');
-    }
-  });
-});
+  
 
             })
              .catch((e) => { console.log(e); }) ;
@@ -400,7 +385,20 @@
 
 (function (window) {
   'use strict';
+  var isTooSoon = true;
+window.addEventListener("beforeinstallprompt", function(e) {
+  if (isTooSoon) {
+    e.preventDefault(); // Prevents prompt display
+    // Prompt later instead:
+    setTimeout(function() {
+      isTooSoon = false;
+      e.prompt(); // Throws if called more than once or default not prevented
+    }, 10000);
+  }
 
+  // The event was re-dispatched in response to our request
+  // ...
+});
   //Push notification button
   var fabPushElement = document.querySelector('.fab__push');
   var fabPushImgElement = document.querySelector('.fab__image');
